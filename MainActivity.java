@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View v,int position, long id) { // tap and addWord to message
                  if(!levelOne){  // if it's not level one, add word to message
-                    addWordToMessage(wordArrayList.get(position));
+                    // addWordToMessage(wordArrayList.get(position));
                 }else{ // else go to next level (categories --> words)
                     retrieveWords(position);
                 }
@@ -88,13 +88,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+
         buttonSelection.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 if(levelOne){
-                    editCategory(position);
+                    // editCategory(position);
                 }else{
-                    editWord(position);
+                    // editWord(position);
                 }
                 return false;
             }
@@ -110,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         play.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                playMessage();
+                // playMessage();
             }
         });
 
@@ -124,21 +126,21 @@ public class MainActivity extends AppCompatActivity {
         addCategory.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                addCategory();
+                // addCategory();
             }
         });
 
         clear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                clearWordInMessage();
+                // clearWordInMessage();
             }
         });
 
         back.setVisibility(View.INVISIBLE);
     }
 
-    private void addCategory(){
+    /*private void addCategory(){
         LayoutInflater inflater = LayoutInflater.from(this);
         View promptView = inflater.inflate(R.layout.edit_word, null);
 
@@ -155,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent();
-                intent.setType("image/*");
+                intent.setType("image*//*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
                 Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
@@ -212,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     })
                 .show();
-    }
+    }*/
 
     private void addWord(){
         // pop up window to input things
@@ -224,10 +226,10 @@ public class MainActivity extends AppCompatActivity {
         final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
         final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
         final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
-        Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
-        Button delete = (Button) promptView.findViewById(R.id.delete);
+        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
+        final Button delete = (Button) promptView.findViewById(R.id.delete);
 
-        delete.setVisibility(View.GONE);
+        delete.setVisibility(View.INVISIBLE);
 
         Picasso.with(this).load(R.drawable.path).into(promptImage);
 
@@ -249,38 +251,23 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if(dbHelper.exists(word) && editWord.getText().toString().isEmpty()){
+                        if(dbHelper.exists(word) || editWord.getText().toString().isEmpty() || editTags.getText().toString().isEmpty()){
                             // toast that it exists
                             Toast.makeText(context, "Word could not be added\n" +
-                                    "It either exists or you did not input any text for the name.", Toast.LENGTH_LONG).show();
+                                    "It either exists or you have left some fields blank.", Toast.LENGTH_LONG).show();
                         }else{
                             word.setImgpath(selectedImagePath);
                             word.setString(editWord.getText().toString());
 
-                            String[] tags = editTags.getText().toString().split(",");
+                            String[] tags = editTags.getText().toString().replaceAll("\\s+","").split(",");
 
-                            int id = dbHelper.insertWord(word);
+                            long id = dbHelper.insertWord(word);
 
-                            if(id < 0){
-                                // error message
-                                dbHelper.deleteWord(word);
-                                Toast.makeText(context, "Word could not be added.", Toast.LENGTH_LONG).show();
-                            }else{
-                                word.set_id(id);
+                            if(id > 0){
+                                word.set_id(dbHelper.getWordID(word.getString()));
 
                                 // insert tags
-                                for(int i = 0; i < tags.length; i++){
-                                    Tag tag = new Tag(tags[i]);
-                                    if(!dbHelper.exists(tag)){
-                                        int id_t = dbHelper.insertNewTag(tag);
-                                        tag.set_id(id_t);
-                                    }
-
-                                    dbHelper.addTag2Word(tag, word);
-                                }
-
-                                wordArrayList.add(word);
-                                gridAdapter.addItem(word);
+                                word.setTags(dbHelper.insertTags2Word(tags, word.get_id()));
                             }
                         }
                     }
@@ -292,10 +279,6 @@ public class MainActivity extends AppCompatActivity {
                             }
                         })
                 .show();
-
-    }
-
-    private void playMessage(){
 
     }
 
@@ -321,6 +304,9 @@ public class MainActivity extends AppCompatActivity {
         gridAdapter.setWordList(wordArrayList);
 
         levelOne = true;
+    }
+
+    /*private void playMessage(){
 
     }
 
@@ -353,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent();
-                intent.setType("image/*");
+                intent.setType("image*//*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
                 Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
@@ -437,7 +423,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent();
-                intent.setType("image/*");
+                intent.setType("image*//*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
             }
@@ -514,7 +500,7 @@ public class MainActivity extends AppCompatActivity {
         dbHelper.deleteCategory(wordArrayList.get(position));
         wordArrayList.remove(position);
         gridAdapter.removeItem(position);
-    }
+    }*/
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
