@@ -9,7 +9,6 @@ public class Word{
     private int _id;
     private String string;
     private String imgpath;
-    private String query;
     private ArrayList<Tag> tags;
 
     public Word(int _id, String string, String imgpath) {
@@ -18,8 +17,8 @@ public class Word{
         this.imgpath = imgpath;
     }
 
-    public Word(String query, String string, String imgpath) {
-        this.query = query;
+    public Word(int _id, String string, String imgpath, ArrayList<Tag> tags) {
+        this._id = _id;
         this.tags = tags;
         this.string = string;
         this.imgpath = imgpath;
@@ -54,14 +53,6 @@ public class Word{
 
     public ArrayList<Tag> getTags() {
         return tags;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public void setQuery(String query) {
-        this.query = query;
     }
 
     public void setTags(ArrayList<Tag> tags) {
