@@ -440,7 +440,6 @@ public class MainActivity extends AppCompatActivity {
                 intent.setType("image/*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-                Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
             }
         });
 

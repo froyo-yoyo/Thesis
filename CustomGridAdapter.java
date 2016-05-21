@@ -60,8 +60,7 @@ public class CustomGridAdapter extends BaseAdapter {
             holder = (ViewHolder) convertView.getTag();
         }
 
-        Word word = new Word();
-        word = wordList.get(position);
+        Word word = wordList.get(position);
 
         if(word.getImgpath().startsWith("file:///android_asset/")){
             Picasso.with(context).load(word.getImgpath()).placeholder(R.drawable.path).into(holder.pic);

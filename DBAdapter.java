@@ -44,7 +44,7 @@ public class DBAdapter {
 
         private static final String W_ID = "_id";
         private static final String T_ID = "_id";
-        private static final String C_ID = "id";
+        private static final String C_ID = "_id";
 
         private static final String M_TAG = "tag";
         private static final String M_WORD = "word";
@@ -358,14 +358,14 @@ public class DBAdapter {
         String join = "SELECT w." + dbHelper.W_ID + ", w." + dbHelper.W_STRING + ", w." + dbHelper.W_IMGPATH +
                 " FROM " + dbHelper.WORD_TABLE + " w INNER JOIN " + dbHelper.MAP_TABLE + " m ON w." + dbHelper.W_ID +
                 "=m." + dbHelper.M_WORD + " INNER JOIN " + dbHelper.TAG_TABLE + " t ON m." + dbHelper.M_TAG + "=t." + dbHelper.T_ID;
-        String where = "WHERE t." + dbHelper.T_STRING + "=";
-        String tags = "AND t." + dbHelper.T_STRING + "=";
+        String where = "";
+        String tags = " OR t." + dbHelper.T_STRING + "='";
         String query = "";
 
-        where += category.getTags().get(0).getString();
-        if(category.getTags().size() > 1){
+        if(category.getTags().size() >= 1){
+            where = " WHERE t." + dbHelper.T_STRING + "='" + category.getTags().get(0).getString() + "'";
             for(int i = 1; i < category.getTags().size(); i++){
-                where += tags + category.getTags().get(i).getString();
+                where += tags + category.getTags().get(i).getString() + "'";
             }
         }
 
@@ -393,7 +393,7 @@ public class DBAdapter {
                 " from " + dbHelper.CATEGORY_TABLE;
         String query_t = "SELECT t." + dbHelper.T_ID + ", t." + dbHelper.T_STRING + " FROM " + dbHelper.TAG_TABLE + " t INNER JOIN "
                 + dbHelper.C_MAP_TABLE + " m ON t." + dbHelper.T_ID + "=m." + dbHelper.CM_TAG +
-                "WHERE m." + dbHelper.CM_CATEGORY + "=?";
+                " WHERE m." + dbHelper.CM_CATEGORY + "=?";
 
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery(query, null);
@@ -405,14 +405,14 @@ public class DBAdapter {
                 String path = cursor.getString(2);
                 ArrayList<Tag> tags = new ArrayList<Tag>();
 
-                /*Cursor cursor_t = db.rawQuery(query_t, new String[]{new Integer(id).toString()});
+                Cursor cursor_t = db.rawQuery(query_t, new String[]{new Integer(id).toString()});
 
                 while(cursor_t.moveToNext()){
                     Tag tag = new Tag(cursor_t.getString(1));
                     tag.set_id(cursor_t.getInt(0));
 
                     tags.add(tag);
-                }*/
+                }
 
                 Word category = new Word(id, string, path, tags);
                 output.add(category);
