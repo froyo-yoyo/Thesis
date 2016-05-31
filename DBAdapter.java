@@ -86,6 +86,34 @@ public class DBAdapter {
         return checkWord;
     }
 
+    public long insertCategory(Word word){
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues contentValues = new ContentValues();
+
+        /*
+        insert into word (w_string, w_imgpath)
+        select 'bibig', 'path'
+        where not exists(select 1 from word where w_string = 'bibig');
+        */
+
+        contentValues.put(dbHelper.C_STRING, word.getString());
+        contentValues.put(dbHelper.C_IMGPATH, word.getImgpath());
+
+        long checkWord = db.insert(dbHelper.CATEGORY_TABLE, null, contentValues);
+
+        if(checkWord < 0){
+            // add a toast
+            Toast.makeText(dbHelper.context, "Adding category " + word.getString() + " unsuccessful.", Toast.LENGTH_LONG).show();
+            return -1;
+        }else{
+            Toast.makeText(dbHelper.context, "Adding category " + word.getString() + " successful!", Toast.LENGTH_LONG).show();
+        }
+
+        // db.close();
+
+        return checkWord;
+    }
+
     public long insertTag(String tag){
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
@@ -99,10 +127,16 @@ public class DBAdapter {
         return check;
     }
 
-    public boolean exists(Word word){ // true if the word exists (it's in the database), false if not
+    public boolean exists(Word word, int which){ // true if the word exists (it's in the database), false if not
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        String query = "SELECT count(*) from " + dbHelper.WORD_TABLE +
-                " where " + dbHelper.W_STRING + "=? LIMIT 1";
+        String query = "";
+        if(which == 0){
+            query = "SELECT count(*) from " + dbHelper.WORD_TABLE +
+                    " where " + dbHelper.W_STRING + "=? LIMIT 1";
+        }else{
+            query = "SELECT count(*) from " + dbHelper.CATEGORY_TABLE +
+                    " where " + dbHelper.C_STRING + "=? LIMIT 1";
+        }
         boolean check = DatabaseUtils.longForQuery(db, query, new String[] {new Integer(word.get_id()).toString()}) > 0;
         // db.close();
         return check;
@@ -117,10 +151,17 @@ public class DBAdapter {
         return check;
     }
 
-    public int getWordID(String w_string){
+    public int getWordID(String w_string, int which){
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        String query = "SELECT " + dbHelper.W_ID + " from " + dbHelper.WORD_TABLE +
-                " WHERE " + dbHelper.W_STRING + "='" + w_string + "' LIMIT 1";
+        String query = "";
+
+        if(which == 0){
+            query = "SELECT " + dbHelper.W_ID + " from " + dbHelper.WORD_TABLE +
+                    " WHERE " + dbHelper.W_STRING + "='" + w_string + "' LIMIT 1";
+        }else{
+            query = "SELECT " + dbHelper.C_ID + " from " + dbHelper.CATEGORY_TABLE +
+                    " WHERE " + dbHelper.C_STRING + "='" + w_string + "' LIMIT 1";
+        }
         Cursor cursor = db.rawQuery(query, null);
 
         if(cursor != null){
@@ -180,6 +221,37 @@ public class DBAdapter {
         return tag;
     }
 
+    public ArrayList<Tag> insertTags2Category(String[] tags, int c_id){
+        ArrayList<Tag> tag = new ArrayList<Tag>();
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        // db.beginTransactionNonExclusive();
+        ContentValues contentValues = new ContentValues();
+
+
+        for(int i = 0; i < tags.length; i++){
+            Tag t = new Tag(tags[i]);
+            if(exists(tags[i])){ // if tag is not in tags table, insert into table
+                contentValues.put(dbHelper.T_STRING, tags[i]);
+                db.insert(dbHelper.TAG_TABLE, null, contentValues);
+                contentValues.clear();
+            }
+
+            t.set_id(getTagID(tags[i]));
+
+            // map tag and word
+            contentValues.put(dbHelper.CM_CATEGORY, c_id);
+            contentValues.put(dbHelper.CM_TAG, t.get_id());
+            db.insert(dbHelper.C_MAP_TABLE, null, contentValues);
+            contentValues.clear();
+            tag.add(t);
+        }
+
+
+        //db.close();
+
+        return tag;
+    }
+
     public ArrayList<Word> getCategoryList(){
         ArrayList<Word> output = new ArrayList<Word>();
         String query = "SELECT " + dbHelper.C_ID + ", " + dbHelper.C_STRING + ", " + dbHelper.C_IMGPATH  +
@@ -207,6 +279,8 @@ public class DBAdapter {
                     tags.add(tag);
                 }
 
+                cursor_t.close();
+
                 Word category = new Word(id, string, path, tags);
                 output.add(category);
             }
@@ -227,6 +301,9 @@ public class DBAdapter {
         String where = "";
         String tags = " OR t." + dbHelper.T_STRING + "='";
         String query = "";
+        String query_t = "SELECT t." + dbHelper.T_ID + ", t." + dbHelper.T_STRING + " FROM " + dbHelper.TAG_TABLE + " t INNER JOIN "
+                + dbHelper.MAP_TABLE + " m ON t." + dbHelper.T_ID + "=m." + dbHelper.M_TAG +
+                " WHERE m." + dbHelper.M_WORD + "=?";
 
         if(category.getTags().size() >= 1){
             where = " WHERE t." + dbHelper.T_STRING + "='" + category.getTags().get(0).getString() + "'";
@@ -244,16 +321,66 @@ public class DBAdapter {
                 int id = cursor.getInt(0);
                 String string = cursor.getString(1);
                 String path = cursor.getString(2);
+                ArrayList<Tag> tagList = new ArrayList<Tag>();
 
-                Word word = new Word(id, string, path);
+                // set tags!
+                Cursor cursor_t = db.rawQuery(query_t, new String[]{new Integer(id).toString()});
+
+                while(cursor_t.moveToNext()){
+                    Tag tag = new Tag(cursor_t.getString(1));
+                    tag.set_id(cursor_t.getInt(0));
+
+                    tagList.add(tag);
+                }
+
+                cursor_t.close();
+
+                Word word = new Word(id, string, path, tagList);
+
                 output.add(word);
             }
         }
+
 
         //db.close();
         cursor.close();
 
         return output;
+    }
+
+
+    public long deleteWord(Word word){
+        long check = -1;
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        for(int i = 0; i < word.getTags().size(); i++){
+            db.delete(dbHelper.MAP_TABLE, dbHelper.M_TAG + "=" + word.getTags().get(i).get_id()
+                    + " AND " + dbHelper.M_WORD + "=" + word.get_id(), null);
+
+            String query = "SELECT count(*) from " + dbHelper.MAP_TABLE +
+                    " where " + dbHelper.M_TAG + "=? LIMIT 1";
+            boolean check_t = DatabaseUtils.longForQuery(db, query, new String[]{new Integer(word.getTags().get(i).get_id()).toString()}) > 0;
+            if(!check_t){
+                db.delete(dbHelper.TAG_TABLE, dbHelper.T_ID + "=" + word.getTags().get(i).get_id(), null);
+            }
+        }
+
+        check = db.delete(dbHelper.WORD_TABLE, dbHelper.W_ID + "=" + word.get_id(), null);
+
+        return check;
+    }
+
+    public void editWord(Word word){
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+
+        cv.put(dbHelper.W_STRING, word.getString());
+        db.update(dbHelper.WORD_TABLE, cv, dbHelper.W_ID + "=" + word.get_id(), null);
+        cv.clear();
+        for(int i = 0; i < word.getTags().size(); i++){
+            Tag tag = word.getTags().get(i);
+            cv.put(dbHelper.T_STRING, tag.getString());
+        }
     }
 
     public void close(){

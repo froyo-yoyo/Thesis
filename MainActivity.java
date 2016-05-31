@@ -23,6 +23,8 @@ import android.widget.Toast;
 
 import com.squareup.picasso.Picasso;
 
+import org.w3c.dom.Text;
+
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
@@ -80,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View v,int position, long id) { // tap and addWord to message
                  if(!levelOne){  // if it's not level one, add word to message
-                    // addWordToMessage(wordArrayList.get(position));
+                    addWordToMessage(wordArrayList.get(position));
                 }else{ // else go to next level (categories --> words)
                     retrieveWords(position);
                 }
@@ -96,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
                 if(levelOne){
                     // editCategory(position);
                 }else{
-                    // editWord(position);
+                    editWord(wordArrayList.get(position));
                 }
                 return false;
             }
@@ -126,30 +128,37 @@ public class MainActivity extends AppCompatActivity {
         addCategory.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // addCategory();
+                addCategory();
             }
         });
 
         clear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // clearWordInMessage();
+                clearWordInMessage();
             }
         });
 
         back.setVisibility(View.INVISIBLE);
     }
 
-    /*private void addCategory(){
+    private void addCategory(){
+        // pop up window to input things
         LayoutInflater inflater = LayoutInflater.from(this);
         View promptView = inflater.inflate(R.layout.edit_word, null);
 
-        final Word word = new Word();
+        final Word category = new Word();
 
         final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
         final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
         final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
-        Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
+        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
+        final Button delete = (Button) promptView.findViewById(R.id.delete);
+        final TextView textString = (TextView) promptView.findViewById(R.id.textEnterString);
+
+        textString.setText("Enter category");
+
+        delete.setVisibility(View.INVISIBLE);
 
         Picasso.with(this).load(R.drawable.path).into(promptImage);
 
@@ -157,10 +166,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent();
-                intent.setType("image*//*");
+                intent.setType("image/*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-                Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
+                // Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
             }
         });
 
@@ -171,50 +180,35 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if(dbHelper.exists(word) && editWord.getText().toString().isEmpty()){
+                        category.setString(editWord.getText().toString());
+                        if(dbHelper.exists(category, 1) || editWord.getText().toString().isEmpty() || editTags.getText().toString().isEmpty()){
                             // toast that it exists
                             Toast.makeText(context, "Category could not be added\n" +
-                                    "It either exists or you did not input any text for the name.", Toast.LENGTH_LONG).show();
+                                    "It either exists or you have left some fields blank.", Toast.LENGTH_LONG).show();
                         }else{
-                            word.setImgpath(selectedImagePath);
-                            word.setString(editWord.getText().toString());
+                            category.setImgpath(selectedImagePath);
 
-                            String[] tags = editTags.getText().toString().split(",");
+                            String[] tags = editTags.getText().toString().replaceAll("\\s+","").split(",");
 
-                            int id = dbHelper.insertCategory(word);
+                            long id = dbHelper.insertCategory(category);
 
-                            if(id < 0){
-                                // error message
-                                dbHelper.deleteCategory(word);
-                                Toast.makeText(context, "Category could not be added.", Toast.LENGTH_LONG).show();
-                            }else{
-                                word.set_id(id);
+                            if(id > 0){
+                                category.set_id(dbHelper.getWordID(category.getString(), 1));
 
                                 // insert tags
-                                for(int i = 0; i < tags.length; i++){
-                                    Tag tag = new Tag(tags[i]);
-                                    if(!dbHelper.exists(tag)){
-                                        int id_t = dbHelper.insertNewTag(tag);
-                                        tag.set_id(id_t);
-                                    }
-
-                                    dbHelper.addTag2Category(tag, word);
-                                }
-
-                                wordArrayList.add(word);
-                                gridAdapter.addItem(word);
+                                category.setTags(dbHelper.insertTags2Category(tags, category.get_id()));
                             }
                         }
                     }
                 })
                 .setNegativeButton("Cancel",
-                    new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog,int id) {
-                            dialog.cancel();
-                        }
-                    })
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,int id) {
+                                dialog.cancel();
+                            }
+                        })
                 .show();
-    }*/
+    }
 
     private void addWord(){
         // pop up window to input things
@@ -240,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
                 intent.setType("image/*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-                Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
+                // Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
             }
         });
 
@@ -251,20 +245,20 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        if(dbHelper.exists(word) || editWord.getText().toString().isEmpty() || editTags.getText().toString().isEmpty()){
+                        word.setString(editWord.getText().toString());
+                        if(dbHelper.exists(word, 0) || editWord.getText().toString().isEmpty() || editTags.getText().toString().isEmpty()){
                             // toast that it exists
                             Toast.makeText(context, "Word could not be added\n" +
                                     "It either exists or you have left some fields blank.", Toast.LENGTH_LONG).show();
                         }else{
                             word.setImgpath(selectedImagePath);
-                            word.setString(editWord.getText().toString());
 
                             String[] tags = editTags.getText().toString().replaceAll("\\s+","").split(",");
 
                             long id = dbHelper.insertWord(word);
 
                             if(id > 0){
-                                word.set_id(dbHelper.getWordID(word.getString()));
+                                word.set_id(dbHelper.getWordID(word.getString(), 0));
 
                                 // insert tags
                                 word.setTags(dbHelper.insertTags2Word(tags, word.get_id()));
@@ -279,6 +273,90 @@ public class MainActivity extends AppCompatActivity {
                             }
                         })
                 .show();
+
+    }
+
+    private void editWord(final Word word){
+        // pop up window to input things
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View promptView = inflater.inflate(R.layout.edit_word, null);
+
+        final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
+        final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
+        final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
+        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
+        final Button delete = (Button) promptView.findViewById(R.id.delete);
+
+        final AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+
+        String tags = "";
+        int count = 0;
+        while(count < word.getTags().size() - 1){
+            tags += word.getTags().get(count).getString() + ", ";
+            ++count;
+        }
+        tags += word.getTags().get(count).getString();
+
+        editTags.setText(tags);
+
+        Picasso.with(this).load(word.getImgpath()).placeholder(R.drawable.path).into(promptImage);
+        editWord.setText(word.getString());
+
+        newImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_GET_CONTENT);
+                startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
+                Picasso.with(context).load(selectedImagePath).placeholder(R.drawable.path).into(promptImage);
+            }
+        });
+
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dbHelper.deleteWord(word);
+            }
+        });
+
+        alertDialogBuilder.setView(promptView)
+                .setTitle("Edit Word")
+                .setMessage("Edit the fields.")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+
+                    }
+                })
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,int id) {
+                                dialog.cancel();
+                            }
+                        })
+                .show();
+    }
+
+    private void addWordToMessage(Word word){
+        LayoutInflater layoutInflater =
+                (LayoutInflater) getBaseContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        final View addView = layoutInflater.inflate(R.layout.wic_layout, null);
+        TextView text = (TextView) addView.findViewById(R.id.itemString);
+        ImageView pic = (ImageView) addView.findViewById(R.id.itemView);
+
+        text.setText(word.getString());
+        Picasso.with(this).load(word.getImgpath()).placeholder(R.drawable.path).into(pic);
+
+        addView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ((LinearLayout)addView.getParent()).removeView(addView);
+            }
+        });
+
+        messageLayout.addView(addView, messageLayout.getChildCount() - 1);
 
     }
 
@@ -306,201 +384,9 @@ public class MainActivity extends AppCompatActivity {
         levelOne = true;
     }
 
-    /*private void playMessage(){
-
-    }
-
-    private void addWordToMessage(Word word){
-        TextView text = (TextView) findViewById(R.id.itemString);
-        ImageView pic = (ImageView) findViewById(R.id.itemView);
-
-    }
-
     private void clearWordInMessage(){
-
+        messageLayout.removeAllViews();
     }
-
-    private void editWord(final int position){
-        // choice of deleting or editing
-        LayoutInflater inflater = LayoutInflater.from(this);
-        View promptView = inflater.inflate(R.layout.edit_word, null);
-
-        final Word word = wordArrayList.get(position);
-
-        final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
-        final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
-        final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
-        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
-        final Button delete = (Button) promptView.findViewById(R.id.delete);
-
-        Picasso.with(this).load(R.drawable.path).into(promptImage);
-
-        newImage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent();
-                intent.setType("image*//*");
-                intent.setAction(Intent.ACTION_GET_CONTENT);
-                startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-                Picasso.with(context).load(intent.getData()).placeholder(R.drawable.path).into(promptImage);
-            }
-        });
-
-        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-        alertDialogBuilder.setView(promptView)
-                .setTitle("New Word")
-                .setMessage("Add new word in the vocabulary.")
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(final DialogInterface dialog, int which) {
-                        delete.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                deleteWord(position);
-                                dbHelper.deleteTagsFromWord(word);
-
-                                Toast.makeText(context, "Word has been deleted.", Toast.LENGTH_LONG).show();
-                                dialog.cancel();
-                            }
-                        });
-                        if(dbHelper.exists(word) && editWord.getText().toString().isEmpty()){
-                            // toast that it exists
-                            Toast.makeText(context, "Word could not be added\n" +
-                                    "It either exists or you did not input any text for the name.", Toast.LENGTH_LONG).show();
-                        }else{
-                            wordArrayList.get(position).setImgpath(selectedImagePath);
-                            wordArrayList.get(position).setString(editWord.getText().toString());
-                            wordArrayList.get(position).getTags().clear();
-                            dbHelper.deleteTagsFromWord(word);
-
-                            String[] tags = editTags.getText().toString().split(",");
-
-                            dbHelper.editWord(word);
-
-                                // insert tags
-                                for(int i = 0; i < tags.length; i++){
-                                    Tag tag = new Tag(tags[i]);
-                                    if(!dbHelper.exists(tag)){
-                                        int id_t = dbHelper.insertNewTag(tag);
-                                        tag.set_id(id_t);
-                                    }else{
-                                        tag.set_id(dbHelper.getTagID(tag));
-                                    }
-
-                                    wordArrayList.get(position).getTags().add(tag);
-
-                                    dbHelper.addTag2Word(tag, word);
-                                }
-
-                        }
-                    }
-                })
-                .setNegativeButton("Cancel",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog,int id) {
-                                dialog.cancel();
-                            }
-                        })
-                .show();
-    }
-
-    private void editCategory(int n){
-        // choice of deleting or editing
-        LayoutInflater inflater = LayoutInflater.from(this);
-        View promptView = inflater.inflate(R.layout.edit_word, null);
-        final int position = n;
-        final Word word = new Word();
-
-        final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
-        final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
-        final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
-        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
-        final Button delete = (Button) promptView.findViewById(R.id.delete);
-
-        Picasso.with(this).load(R.drawable.path).into(promptImage);
-
-        newImage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent();
-                intent.setType("image*//*");
-                intent.setAction(Intent.ACTION_GET_CONTENT);
-                startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-            }
-        });
-
-
-        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
-        alertDialogBuilder.setView(promptView)
-                .setTitle("New Word")
-                .setMessage("Add new word in the vocabulary.")
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(final DialogInterface dialog, int which) {
-                        delete.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                deleteCategory(position);
-
-                                Toast.makeText(context, "Category has been deleted.", Toast.LENGTH_LONG).show();
-                                goBackToCategories();
-                                dialog.cancel();
-                            }
-                        });
-                        if(dbHelper.exists(word) && editWord.getText().toString().isEmpty()){
-                            // toast that it exists
-                            Toast.makeText(context, "Category could not be added\n" +
-                                    "It either exists or you did not input any text for the name.", Toast.LENGTH_LONG).show();
-                        }else{
-                            wordArrayList.get(position).setImgpath(selectedImagePath);
-                            wordArrayList.get(position).setString(editWord.getText().toString());
-                            wordArrayList.get(position).getTags().clear();
-                            dbHelper.deleteTagsFromCategory(word);
-
-                            String[] tags = editTags.getText().toString().split(",");
-
-                            dbHelper.editCategory(word);
-
-                            // insert tags
-                            for(int i = 0; i < tags.length; i++){
-                                Tag tag = new Tag(tags[i]);
-                                if(!dbHelper.exists(tag)){
-                                    int id_t = dbHelper.insertNewTag(tag);
-                                    tag.set_id(id_t);
-                                }else{
-                                    tag.set_id(dbHelper.getTagID(tag));
-                                }
-
-                                wordArrayList.get(position).getTags().add(tag);
-
-                                dbHelper.addTag2Category(tag, word);
-                            }
-
-                        }
-                    }
-                })
-                .setNegativeButton("Cancel",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog,int id) {
-                                dialog.cancel();
-                            }
-                        })
-                .show();
-    }
-
-    private void deleteWord(int position){
-        dbHelper.deleteTagsFromWord(wordArrayList.get(position));
-        dbHelper.deleteWord(wordArrayList.get(position));
-        wordArrayList.remove(position);
-        gridAdapter.removeItem(position);
-    }
-
-    private void deleteCategory(int position){
-        dbHelper.deleteTagsFromCategory(wordArrayList.get(position));
-        dbHelper.deleteCategory(wordArrayList.get(position));
-        wordArrayList.remove(position);
-        gridAdapter.removeItem(position);
-    }*/
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {

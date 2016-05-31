@@ -31,8 +31,4 @@ public class Message {
     public void update(){
         // if there are changes in words (images, string), update the list
     }
-
-    public void message(String message){
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show();
-    }
 }
