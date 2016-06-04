@@ -12,6 +12,9 @@ import com.readystatesoftware.sqliteasset.SQLiteAssetHelper;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Created by ASUS on 4/19/2016.
@@ -114,19 +117,6 @@ public class DBAdapter {
         return checkWord;
     }
 
-    public long insertTag(String tag){
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        ContentValues contentValues = new ContentValues();
-
-        contentValues.put(dbHelper.T_STRING, tag);
-
-        long check = db.insert(dbHelper.TAG_TABLE, null, contentValues);
-
-        // db.close();
-
-        return check;
-    }
-
     public boolean exists(Word word, int which){ // true if the word exists (it's in the database), false if not
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         String query = "";
@@ -144,6 +134,14 @@ public class DBAdapter {
 
     public boolean exists(String tag){
         SQLiteDatabase db = dbHelper.getReadableDatabase();
+        String query = "SELECT count(*) from " + dbHelper.TAG_TABLE +
+                " where " + dbHelper.T_STRING + "=? LIMIT 1";
+        boolean check = DatabaseUtils.longForQuery(db, query, new String[] {tag}) > 0;
+        // db.close();
+        return check;
+    }
+
+    public boolean exists(String tag, SQLiteDatabase db){
         String query = "SELECT count(*) from " + dbHelper.TAG_TABLE +
                 " where " + dbHelper.T_STRING + "=? LIMIT 1";
         boolean check = DatabaseUtils.longForQuery(db, query, new String[] {tag}) > 0;
@@ -176,6 +174,21 @@ public class DBAdapter {
 
     public int getTagID(String t_string){
         SQLiteDatabase db = dbHelper.getReadableDatabase();
+        String query = "SELECT " + dbHelper.T_ID + " from " + dbHelper.TAG_TABLE +
+                " WHERE " + dbHelper.T_STRING + "='" + t_string + "' LIMIT 1";
+        Cursor cursor = db.rawQuery(query, null);
+
+        if(cursor != null){
+            cursor.moveToFirst();
+        }
+
+        int id = cursor.getInt(0);
+        cursor.close();
+        // db.close();
+        return id;
+    }
+
+    public int getTagID(String t_string, SQLiteDatabase db){
         String query = "SELECT " + dbHelper.T_ID + " from " + dbHelper.TAG_TABLE +
                 " WHERE " + dbHelper.T_STRING + "='" + t_string + "' LIMIT 1";
         Cursor cursor = db.rawQuery(query, null);
@@ -370,16 +383,129 @@ public class DBAdapter {
         return check;
     }
 
-    public void editWord(Word word){
+    public long deleteCategory(Word word){
+        long check = -1;
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        for(int i = 0; i < word.getTags().size(); i++){
+            db.delete(dbHelper.C_MAP_TABLE, dbHelper.CM_TAG + "=" + word.getTags().get(i).get_id()
+                    + " AND " + dbHelper.CM_CATEGORY + "=" + word.get_id(), null);
+
+            if(!exists(word.getTags().get(i).getString(), db)){
+                db.delete(dbHelper.TAG_TABLE, dbHelper.T_ID + "=" + word.getTags().get(i).get_id(), null);
+            }
+        }
+
+        check = db.delete(dbHelper.CATEGORY_TABLE, dbHelper.C_ID + "=" + word.get_id(), null);
+
+        return check;
+    }
+
+    public long editWord(Word word){
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues cv = new ContentValues();
 
         cv.put(dbHelper.W_STRING, word.getString());
-        db.update(dbHelper.WORD_TABLE, cv, dbHelper.W_ID + "=" + word.get_id(), null);
-        cv.clear();
-        for(int i = 0; i < word.getTags().size(); i++){
-            Tag tag = word.getTags().get(i);
-            cv.put(dbHelper.T_STRING, tag.getString());
+        cv.put(dbHelper.W_IMGPATH, word.getImgpath());
+
+        return db.update(dbHelper.WORD_TABLE, cv, dbHelper.W_ID + "=" + word.get_id(), null);
+    }
+
+    public long editCategory(Word word){
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+
+        cv.put(dbHelper.C_STRING, word.getString());
+        cv.put(dbHelper.C_IMGPATH, word.getImgpath());
+
+        return db.update(dbHelper.CATEGORY_TABLE, cv, dbHelper.C_ID + "=" + word.get_id(), null);
+    }
+
+    public void insertTag2Word(String[] oldTags, String[] newTags, int w_id){
+        if(!Arrays.equals(oldTags, newTags)) {
+            // update tags
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            ContentValues cv = new ContentValues();
+
+            Set<String> newSet =  new HashSet<String>(Arrays.asList(newTags));
+            Set<String> oldSet = new HashSet<String>(Arrays.asList(oldTags));
+
+            for(int i = 0; i < newTags.length; i++){
+                if(!oldSet.contains(newTags[i])){
+                    // insert newTags[counter] in word
+                    if(!exists(newTags[i], db)){
+                        cv.put(dbHelper.T_STRING, newTags[i]);
+                        db.insert(dbHelper.TAG_TABLE, null, cv);
+                        cv.clear();
+                    }
+
+                    int id = getTagID(newTags[i], db);
+
+                    cv.put(dbHelper.M_TAG, id);
+                    cv.put(dbHelper.M_WORD, w_id);
+
+                    db.insert(dbHelper.MAP_TABLE, null, cv);
+
+                    cv.clear();
+                }
+            }
+
+            for(int i = 0; i < oldTags.length; i++){
+                if(!newSet.contains(oldTags[i])){
+                    // delete oldTags[i]
+                    int id = getTagID(oldTags[i], db);
+                    db.delete(dbHelper.MAP_TABLE, dbHelper.M_TAG + "=" + id + " AND " + dbHelper.M_WORD + "=" + w_id, null);
+
+                    if(!exists(oldTags[i], db)){
+                        db.delete(dbHelper.TAG_TABLE, dbHelper.T_ID + "=" + id, null);
+                    }
+                }
+            }
+
+        }
+    }
+
+    public void insertTag2Category(String[] oldTags, String[] newTags, int w_id){
+        if(!Arrays.equals(oldTags, newTags)) {
+            // update tags
+            SQLiteDatabase db = dbHelper.getWritableDatabase();
+            ContentValues cv = new ContentValues();
+
+            Set<String> newSet =  new HashSet<String>(Arrays.asList(newTags));
+            Set<String> oldSet = new HashSet<String>(Arrays.asList(oldTags));
+
+            for(int i = 0; i < newTags.length; i++){
+                if(!oldSet.contains(newTags[i])){
+                    // insert newTags[counter] in word
+                    if(!exists(newTags[i], db)){
+                        cv.put(dbHelper.T_STRING, newTags[i]);
+                        db.insert(dbHelper.TAG_TABLE, null, cv);
+                        cv.clear();
+                    }
+
+                    int id = getTagID(newTags[i], db);
+
+                    cv.put(dbHelper.CM_TAG, id);
+                    cv.put(dbHelper.CM_CATEGORY, w_id);
+
+                    db.insert(dbHelper.C_MAP_TABLE, null, cv);
+
+                    cv.clear();
+                }
+            }
+
+            for(int i = 0; i < oldTags.length; i++){
+                if(!newSet.contains(oldTags[i])){
+                    // delete oldTags[i]
+                    int id = getTagID(oldTags[i], db);
+                    db.delete(dbHelper.C_MAP_TABLE, dbHelper.CM_TAG + "=" + id + " AND " + dbHelper.CM_CATEGORY + "=" + w_id, null);
+
+                    if(!exists(oldTags[i], db)){
+                        db.delete(dbHelper.TAG_TABLE, dbHelper.T_ID + "=" + id, null);
+                    }
+                }
+            }
+
         }
     }
 

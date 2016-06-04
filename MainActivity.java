@@ -26,6 +26,7 @@ import com.squareup.picasso.Picasso;
 import org.w3c.dom.Text;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
     private DBAdapter dbHelper;
@@ -72,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         back = (Button) findViewById(R.id.back);
         addWord = (Button) findViewById(R.id.newWord);
         clear = (Button) findViewById(R.id.clear);
-        play = (Button) findViewById(R.id.play);
+        // play = (Button) findViewById(R.id.play);
         addCategory = (Button) findViewById(R.id.newCategory);
 
         gridAdapter = new CustomGridAdapter(wordArrayList, this);
@@ -96,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
                 if(levelOne){
-                    // editCategory(position);
+                    editCategory(wordArrayList.get(position));
                 }else{
                     editWord(wordArrayList.get(position));
                 }
@@ -111,12 +112,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        play.setOnClickListener(new View.OnClickListener() {
+        /*play.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // playMessage();
             }
-        });
+        });*/
 
         addWord.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -198,6 +199,8 @@ public class MainActivity extends AppCompatActivity {
                                 // insert tags
                                 category.setTags(dbHelper.insertTags2Category(tags, category.get_id()));
                             }
+
+                            goBackToCategories();
                         }
                     }
                 })
@@ -263,6 +266,8 @@ public class MainActivity extends AppCompatActivity {
                                 // insert tags
                                 word.setTags(dbHelper.insertTags2Word(tags, word.get_id()));
                             }
+
+                            goBackToCategories();
                         }
                     }
                 })
@@ -276,10 +281,12 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void editWord(final Word word){
+    private void editCategory(final Word word){
         // pop up window to input things
         LayoutInflater inflater = LayoutInflater.from(this);
         View promptView = inflater.inflate(R.layout.edit_word, null);
+
+        selectedImagePath = word.getImgpath();
 
         final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
         final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
@@ -289,13 +296,19 @@ public class MainActivity extends AppCompatActivity {
 
         final AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 
+        final Word oldWord = word;
+
         String tags = "";
+        final String[] oldTags = new String[word.getTags().size()];
         int count = 0;
         while(count < word.getTags().size() - 1){
-            tags += word.getTags().get(count).getString() + ", ";
+            oldTags[count] = word.getTags().get(count).getString();
+            tags += oldTags[count] + ", ";
             ++count;
         }
-        tags += word.getTags().get(count).getString();
+        oldTags[count] = word.getTags().get(count).getString();
+        tags += oldTags[count];
+        Arrays.sort(oldTags);
 
         editTags.setText(tags);
 
@@ -309,7 +322,106 @@ public class MainActivity extends AppCompatActivity {
                 intent.setType("image/*");
                 intent.setAction(Intent.ACTION_GET_CONTENT);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
-                Picasso.with(context).load(selectedImagePath).placeholder(R.drawable.path).into(promptImage);
+
+                if(selectedImagePath.isEmpty()){
+                    Picasso.with(context).load(R.drawable.path).into(promptImage);
+                }else{
+                    Picasso.with(context).load(selectedImagePath).placeholder(R.drawable.path).into(promptImage);
+                }
+
+            }
+        });
+
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dbHelper.deleteCategory(word);
+            }
+        });
+
+        alertDialogBuilder.setView(promptView)
+                .setTitle("Edit Word")
+                .setMessage("Edit the fields.")
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        word.setImgpath(selectedImagePath);
+                        word.setString(editWord.getText().toString());
+
+                        String[] tags = editTags.getText().toString().replaceAll("\\s+","").split(",");
+                        Arrays.sort(tags);
+
+                        long id = dbHelper.editCategory(word);
+
+                        if(id <= 0){
+                            // insert word
+                            id = dbHelper.insertCategory(word);
+                            word.set_id(dbHelper.getWordID(word.getString(), 1));
+                        }
+
+                        if(id > 0){
+                            // edit tags
+                            dbHelper.insertTag2Category(oldTags, tags, word.get_id());
+                        }
+
+                        goBackToCategories();
+                    }
+                })
+                .setNegativeButton("Cancel",
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,int id) {
+                                dialog.cancel();
+                            }
+                        })
+                .show();
+    }
+
+    private void editWord(final Word word){
+        // pop up window to input things
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View promptView = inflater.inflate(R.layout.edit_word, null);
+
+        selectedImagePath = word.getImgpath();
+
+        final ImageView promptImage = (ImageView) promptView.findViewById(R.id.imagePromptView);
+        final EditText editWord = (EditText) promptView.findViewById(R.id.editWord);
+        final EditText editTags = (EditText) promptView.findViewById(R.id.editTags);
+        final Button newImage = (Button) promptView.findViewById(R.id.btnGallery);
+        final Button delete = (Button) promptView.findViewById(R.id.delete);
+
+        final AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+
+        String tags = "";
+        final String[] oldTags = new String[word.getTags().size()];
+        int count = 0;
+        while(count < word.getTags().size() - 1){
+            oldTags[count] = word.getTags().get(count).getString();
+            tags += oldTags[count] + ", ";
+            ++count;
+        }
+        oldTags[count] = word.getTags().get(count).getString();
+        tags += oldTags[count];
+        Arrays.sort(oldTags);
+
+        editTags.setText(tags);
+
+        Picasso.with(this).load(word.getImgpath()).placeholder(R.drawable.path).into(promptImage);
+        editWord.setText(word.getString());
+
+        newImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_GET_CONTENT);
+                startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE);
+
+                if(selectedImagePath.isEmpty()){
+                    Picasso.with(context).load(R.drawable.path).into(promptImage);
+                }else{
+                    Picasso.with(context).load(selectedImagePath).placeholder(R.drawable.path).into(promptImage);
+                }
+
             }
         });
 
@@ -326,8 +438,26 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        word.setImgpath(selectedImagePath);
+                        word.setString(editWord.getText().toString());
 
+                        String[] tags = editTags.getText().toString().replaceAll("\\s+","").split(",");
+                        Arrays.sort(tags);
 
+                        long id = dbHelper.editWord(word);
+
+                        if(id <= 0){
+                            // insert word
+                            id = dbHelper.insertWord(word);
+                            word.set_id(dbHelper.getWordID(word.getString(), 0));
+                        }
+
+                        if(id > 0){
+                            // edit tags
+                            dbHelper.insertTag2Word(oldTags, tags, word.get_id());
+                        }
+
+                        goBackToCategories();
                     }
                 })
                 .setNegativeButton("Cancel",
